@@ -1,0 +1,17 @@
+[
+  {
+    "timestamp": "2026-07-07T14:02:11.100Z",
+    "event_type": "network_connection",
+    "host": "app-worker-03",
+    "session": "s-egress-a",
+    "user": "svc-deploy",
+    "pid": 41022,
+    "image": "/usr/bin/python3",
+    "dest_host": "api.anthropic.com",
+    "dest_port": 443,
+    "protocol": "tcp",
+    "bytes_out": 812,
+    "bytes_in": 1503,
+    "user_agent": "anthropic-python/0.40.0"
+  }
+]

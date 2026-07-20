@@ -1,0 +1,17 @@
+event_type=process_creation
+| eval recon=case(
+    match(command_line, "(?i)(^|\s)(whoami|id)(\s|$)"), "identity",
+    match(command_line, "(?i)(uname|hostname|lsb_release|/etc/os-release|/etc/issue)"), "sysinfo",
+    match(command_line, "(?i)(ip\s+a|ip\s+addr|ifconfig|netstat|(^|\s)ss\s+-|(^|\s)route(\s|$))"), "netconfig",
+    match(command_line, "(?i)((^|\s)ps\s|pgrep|(^|\s)top(\s|$)|htop)"), "procs",
+    match(command_line, "(?i)((^|\s)env(\s|$)|printenv)"), "env",
+    match(command_line, "(?i)sudo\s+-l"), "privs",
+    match(command_line, "(?i)(crontab\s+-l|systemctl\s+list|service\s+--status-all)"), "services",
+    match(command_line, "(?i)(-perm\s+[-/]?[0-9]*4000)"), "suid",
+    match(command_line, "(?i)(/etc/passwd|getent\s+passwd|/etc/shadow)"), "accounts",
+    match(command_line, "(?i)((^|\s)mount(\s|$)|lsblk|(^|\s)df\s+-)"), "storage",
+    match(command_line, "(?i)(dpkg\s+-l|rpm\s+-qa|apt\s+list|pip\s+list)"), "software"
+  )
+| where isnotnull(recon)
+| stats dc(recon) as categories, range(_time) as span by session
+| where categories>=6 AND span<=120

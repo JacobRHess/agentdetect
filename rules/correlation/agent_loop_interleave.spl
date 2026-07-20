@@ -1,0 +1,9 @@
+event_type IN ("process_creation", "network_connection")
+| eval is_llm=if(event_type=="network_connection" AND (dest_host=="api.anthropic.com" OR dest_host=="api.openai.com" OR dest_host=="api.mistral.ai" OR dest_host=="api.cohere.ai" OR dest_host=="api.x.ai" OR dest_host=="api.deepseek.com" OR dest_host=="api.groq.com" OR dest_host=="api.together.xyz" OR dest_host=="openrouter.ai" OR dest_host=="generativelanguage.googleapis.com"), 1, 0)
+| where event_type=="process_creation" OR is_llm==1
+| eval kind=if(is_llm==1, "llm", "cmd")
+| sort 0 session, _time
+| streamstats current=f last(kind) as prev by session
+| eval act=if(prev=="llm" AND kind=="cmd", 1, 0)
+| stats sum(act) as cycles by session
+| where cycles>=3

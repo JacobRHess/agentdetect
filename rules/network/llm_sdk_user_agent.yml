@@ -1,0 +1,34 @@
+title: LLM client SDK user agent on outbound traffic
+id: 1a2b3c4d-0002-4a5b-8c6d-000000000002
+status: experimental
+description: >
+  Outbound traffic carried the user agent of a language-model client SDK
+  (anthropic, openai, langchain, llama-index). This is the cheapest possible
+  signal that a model is being driven from this host, and it is deliberately
+  included as the brittle anchor: a user agent is a string an author controls
+  and can trivially spoof. It is here to make a point in contrast with the
+  behavioral detections, which key on the agent's operating rhythm and survive
+  when the SDK is swapped, vendored, or masqueraded as curl.
+references:
+  - https://attack.mitre.org/techniques/T1071/001/
+logsource:
+  product: linux
+  category: network_connection
+detection:
+  selection:
+    event_type: network_connection
+    user_agent|contains:
+      - anthropic
+      - openai-python
+      - langchain
+      - llama-index
+      - llamaindex
+      - openai/
+  condition: selection
+falsepositives:
+  - Sanctioned applications built on these SDKs. Scope their hosts out. Do not
+    lean on this rule alone; a real adversary spoofs the user agent.
+level: low
+tags:
+  - attack.command-and-control
+  - attack.t1071.001

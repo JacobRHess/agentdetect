@@ -1,0 +1,123 @@
+"""Render a single self-contained HTML page summarising the pack.
+
+No framework, no CDN, no JavaScript, no network at view time. One file you can
+open offline or hand to someone. Every dynamic value is HTML escaped, and the
+output carries no timestamp so a test can diff it.
+
+Each fixture shows one cell: did the detection fire, and was that the right
+answer for this attack-or-benign sample? A cell is "n/a" when Splunk was not
+reachable from the machine that built the page - honest reporting, not a hidden
+failure.
+"""
+
+from __future__ import annotations
+
+import html
+from dataclasses import dataclass
+
+from agentdetect.manifest import Detection, RuleKind
+
+ENGINE = "splunk"
+
+
+@dataclass(frozen=True, slots=True)
+class CellResult:
+    passed: bool | None  # None => engine unreachable, not evaluated
+    detail: str
+
+
+# (detection id, fixture name) -> result
+Results = dict[tuple[str, str], CellResult]
+
+_CSS = """\
+:root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;
+--muted:#8b949e;--pass:#3fb950;--fail:#f85149;--skip:#d29922;--accent:#a371f7}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);
+font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.wrap{max-width:1000px;margin:0 auto;padding:32px 20px}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 24px}
+.summary{display:flex;gap:24px;margin:0 0 28px;flex-wrap:wrap}
+.summary div{background:var(--panel);border:1px solid var(--line);
+border-radius:8px;padding:12px 18px}.summary b{font-size:22px;display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+padding:16px 18px;margin:0 0 14px}.card h2{font-size:15px;margin:0 0 2px}
+.card .meta{color:var(--muted);font-size:12px;margin:0 0 12px}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;
+padding:1px 9px;margin:0 4px 0 0;font-size:11px;color:var(--accent)}
+.kind{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;
+margin:0 4px 0 0}.kind.sigma{background:rgba(88,166,255,.15);color:#58a6ff}
+.kind.spl{background:rgba(163,113,247,.15);color:var(--accent)}
+.fx{display:flex;justify-content:space-between;align-items:center;
+border-top:1px solid var(--line);padding:9px 0}
+.fx:last-child{padding-bottom:0}.fx code{color:var(--muted)}
+.pill{font-size:11px;font-weight:600;padding:2px 10px;border-radius:999px}
+.pass{background:rgba(63,185,80,.15);color:var(--pass)}
+.fail{background:rgba(248,81,73,.15);color:var(--fail)}
+.skip{background:rgba(210,153,34,.15);color:var(--skip)}
+footer{color:var(--muted);font-size:12px;margin-top:28px;
+border-top:1px solid var(--line);padding-top:14px}"""
+
+
+def _pill(cell: CellResult) -> str:
+    tip = html.escape(" ".join(cell.detail.split()), quote=True)
+    if cell.passed is None:
+        return f'<span class="pill skip" title="{tip}">n/a</span>'
+    cls, label = ("pass", "PASS") if cell.passed else ("fail", "FAIL")
+    return f'<span class="pill {cls}" title="{tip}">{label}</span>'
+
+
+def _card(detection: Detection, results: Results) -> str:
+    chips = "".join(f'<span class="chip">{html.escape(a)}</span>' for a in detection.attack)
+    kind = "sigma" if detection.kind is RuleKind.SIGMA else "spl"
+    rows = []
+    for fx in detection.fixtures:
+        cell = results.get((detection.id, fx.name), CellResult(None, "not evaluated"))
+        rows.append(
+            f'<div class="fx"><code>{html.escape(fx.name)}</code>'
+            f"<span>expect {html.escape(fx.expect.value)} &middot; {_pill(cell)}</span></div>"
+        )
+    return (
+        '<div class="card">'
+        f"<h2>{html.escape(detection.title)}</h2>"
+        f'<p class="meta">{html.escape(detection.id)} &middot; '
+        f'<span class="kind {kind}">{kind}</span> &middot; '
+        f"<code>{html.escape(detection.rule.name)}</code></p>"
+        f"<div>{chips}</div>" + "".join(rows) + "</div>"
+    )
+
+
+def render(detections: tuple[Detection, ...], results: Results) -> str:
+    cards = "\n".join(_card(d, results) for d in detections)
+    evaluated = [r for r in results.values() if r.passed is not None]
+    passed = sum(1 for r in evaluated if r.passed)
+    failed = len(evaluated) - passed
+    total_cells = sum(len(d.fixtures) for d in detections)
+    skipped = total_cells - len(evaluated)
+
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>agentdetect validation report</title>
+<style>{_CSS}</style>
+</head>
+<body>
+<div class="wrap">
+<h1>agentdetect validation report</h1>
+<p class="sub">Every detection replayed through Splunk against the trace that
+must trip it and the trace that must not.</p>
+<div class="summary">
+<div><b>{len(detections)}</b>detections</div>
+<div><b style="color:var(--pass)">{passed}</b>cells passed</div>
+<div><b style="color:var(--fail)">{failed}</b>cells failed</div>
+<div><b style="color:var(--skip)">{skipped}</b>not evaluated here</div>
+</div>
+{cards}
+<footer>Generated by agentdetect. Open offline; no external resources are
+loaded. "n/a" means Splunk was not reachable from the machine that built this
+page.</footer>
+</div>
+</body>
+</html>
+"""

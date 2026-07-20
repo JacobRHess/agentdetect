@@ -1,0 +1,17 @@
+[
+  {
+    "timestamp": "2026-07-07T14:02:11.100Z",
+    "event_type": "network_connection",
+    "host": "app-worker-03",
+    "session": "s-egress-b",
+    "user": "svc-deploy",
+    "pid": 41022,
+    "image": "/usr/bin/python3",
+    "dest_host": "pypi.org",
+    "dest_port": 443,
+    "protocol": "tcp",
+    "bytes_out": 540,
+    "bytes_in": 88231,
+    "user_agent": "pip/24.0"
+  }
+]

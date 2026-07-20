@@ -1,0 +1,101 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege: this workflow only ever reads the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Offline gate: lint, types, security, and the manifest / schema / conversion
+  # unit tests. No engine. Fails fast before the heavier job boots Splunk.
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      # Third-party actions are pinned to a full commit SHA, not a moving tag,
+      # so a compromised or retagged release cannot change what runs.
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - name: Sync from the lockfile
+        run: uv sync --extra dev --frozen
+      - name: Lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Type-check
+        run: uv run mypy
+      - name: Security scan (source)
+        run: uv run bandit -c pyproject.toml -q -r src
+      - name: Vulnerable dependency scan
+        # --skip-editable so the project itself is not audited as an unpublished
+        # dist; deps are still scanned. CVE-2025-69872 is in diskcache, pulled
+        # transitively by pySigma, with no fixed release. pySigma only converts
+        # this repo's own trusted rules, so no untrusted input reaches diskcache.
+        # Documented in SECURITY.md; drop the ignore when a fix ships.
+        run: uv run pip-audit --skip-editable --ignore-vuln CVE-2025-69872
+      - name: ATT&CK doc is generated, not hand-edited
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python -m agentdetect.attackdoc > docs/ATTACK.md
+          uv run agentdetect attack --layer docs/attack-layer.json
+          git diff --exit-code -- docs/ATTACK.md docs/attack-layer.json \
+            || (echo "::error::docs drifted from the manifest; regenerate them" && exit 1)
+      - name: Unit tests with coverage gate
+        run: uv run pytest -q --cov
+
+  # The real loop: boot Splunk, replay every fixture through it, and fail if any
+  # detection does not fire (or stay silent) as the manifest declares.
+  validate:
+    runs-on: ubuntu-latest
+    needs: static
+    env:
+      AD_SPLUNK_PASSWORD: agentdetect_dev_2026
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - run: uv sync --extra dev --frozen
+
+      - name: Start Splunk
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Mount the lab confs as an app's local dir so the image's first-boot
+          # provisioning (which owns system/local) is not blocked by read-only
+          # files. This enables HEC, creates the agentdetect index, and sets
+          # KV_MODE=json on the agent:telemetry sourcetype.
+          docker run -d --name splunk \
+            -p 8088:8088 -p 8089:8089 \
+            -e SPLUNK_START_ARGS=--accept-license \
+            -e SPLUNK_PASSWORD="$AD_SPLUNK_PASSWORD" \
+            -v "$PWD/lab/splunk:/opt/splunk/etc/apps/agentdetect/local" \
+            splunk/splunk:9.4.2@sha256:4f798b8dfa75512c5b69b4f162c686e7b194e980559dd40fed78aadc417381be
+
+      - name: Wait for Splunk
+        shell: bash
+        run: |
+          for i in $(seq 1 84); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' splunk 2>/dev/null || echo starting)"
+            echo "splunk health: $status ($((i * 5))s)"
+            if [ "$status" = "healthy" ]; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::Splunk did not become healthy in time"
+          docker logs splunk 2>&1 | tail -n 150
+          exit 1
+
+      - name: Replay every fixture through Splunk
+        run: uv run pytest -m replay -v

@@ -1,0 +1,7 @@
+[
+  {"timestamp": "2026-07-07T15:10:00.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-b", "user": "svc-deploy", "pid": 42101, "image": "/usr/bin/whoami", "command_line": "whoami", "tty": "pts/0", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:10:06.400Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-b", "user": "svc-deploy", "pid": 42102, "image": "/usr/bin/id", "command_line": "id", "tty": "pts/0", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:10:31.900Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-b", "user": "svc-deploy", "pid": 42103, "image": "/usr/bin/uname", "command_line": "uname -a", "tty": "pts/0", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:11:05.200Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-b", "user": "svc-deploy", "pid": 42104, "image": "/usr/bin/ls", "command_line": "ls -la /opt/app", "tty": "pts/0", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:12:40.700Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-b", "user": "svc-deploy", "pid": 42105, "image": "/usr/bin/vim", "command_line": "vim /opt/app/notes.txt", "tty": "pts/0", "exit_code": 0}
+]

@@ -1,0 +1,12 @@
+event_type=process_creation tty=""
+| sort 0 session, _time
+| streamstats current=f last(_time) as prev by session
+| eval gap=_time-prev
+| stats count as cmds,
+        dc(command_line) as distinct,
+        sum(eval(if(isnotnull(gap), 1, 0))) as gaps,
+        avg(gap) as mean,
+        stdev(gap) as sd,
+        sum(eval(if(gap>=0.5 AND gap<=10, 1, 0))) as in_band by session
+| eval band_frac=if(gaps>0, in_band/gaps, 0), cv=if(mean>0, sd/mean, 99)
+| where cmds>=8 AND distinct>=6 AND band_frac>=0.7 AND mean>=0.5 AND mean<=10 AND cv<=0.9

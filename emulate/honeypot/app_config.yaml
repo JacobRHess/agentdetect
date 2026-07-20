@@ -1,0 +1,7 @@
+service: checkout-api
+listen: 0.0.0.0:8080
+database:
+  host: 10.0.3.14
+  port: 5432
+  user: app
+log_level: info

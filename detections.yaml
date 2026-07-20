@@ -1,0 +1,114 @@
+# Single source of truth. The engine, the CLI, the test suite and the ATT&CK doc
+# are all generated from or checked against this file. Adding a detection means
+# adding an entry here plus a rule (a .yml Sigma rule or a .spl search) and two
+# fixtures (one attack, one benign) - nothing else.
+version: 1
+
+detections:
+  # --- Field-match anchors (Sigma) -----------------------------------------
+  - id: llm-api-egress
+    title: Outbound traffic to a large language model inference API
+    rule: rules/network/llm_api_egress.yml
+    attack: [T1071.001, T1102]
+    fixtures:
+      - events: fixtures/llm_api_egress.alert.json
+        expect: alert
+      - events: fixtures/llm_api_egress.benign.json
+        expect: clean
+
+  - id: llm-sdk-user-agent
+    title: LLM client SDK user agent on outbound traffic
+    rule: rules/network/llm_sdk_user_agent.yml
+    attack: [T1071.001]
+    fixtures:
+      - events: fixtures/llm_sdk_user_agent.alert.json
+        expect: alert
+      - events: fixtures/llm_sdk_user_agent.benign.json
+        expect: clean
+
+  - id: credential-file-harvest
+    title: Read of on-disk credential material
+    rule: rules/process/credential_file_harvest.yml
+    attack: [T1552.001]
+    fixtures:
+      - events: fixtures/credential_file_harvest.alert.json
+        expect: alert
+      - events: fixtures/credential_file_harvest.benign.json
+        expect: clean
+
+  - id: cloud-metadata-access
+    title: Access to the cloud instance metadata service
+    rule: rules/network/cloud_metadata_access.yml
+    attack: [T1552.005]
+    fixtures:
+      - events: fixtures/cloud_metadata_access.alert.json
+        expect: alert
+      - events: fixtures/cloud_metadata_access.benign.json
+        expect: clean
+
+  - id: shell-history-tamper
+    title: Shell history disabled or cleared
+    rule: rules/process/shell_history_tamper.yml
+    attack: [T1070.003, T1562.003]
+    fixtures:
+      - events: fixtures/shell_history_tamper.alert.json
+        expect: alert
+      - events: fixtures/shell_history_tamper.benign.json
+        expect: clean
+
+  # --- Behavioral flagships (native SPL) -----------------------------------
+  - id: recon-breadth-burst
+    title: Broad host reconnaissance compressed into one session
+    rule: rules/correlation/recon_breadth_burst.spl
+    attack: [T1082, T1057, T1016, T1033, T1518, T1069]
+    fixtures:
+      - events: fixtures/recon_breadth_burst.alert.json
+        expect: alert
+      - events: fixtures/recon_breadth_burst.benign.json
+        expect: clean
+
+  - id: agent-command-cadence
+    title: Reasoning-paced command cadence of an autonomous agent
+    rule: rules/correlation/agent_command_cadence.spl
+    attack: [T1059]
+    fixtures:
+      - events: fixtures/agent_command_cadence.alert.json
+        expect: alert
+      - events: fixtures/agent_command_cadence.benign.json
+        expect: clean
+      # A steady monitoring loop: non-interactive, regular ~3s cadence, gaps
+      # squarely in band - it matches every timing test, and is rejected only by
+      # the command-diversity requirement (it runs one command; an agent runs
+      # many).
+      - events: fixtures/agent_command_cadence_poll.benign.json
+        expect: clean
+
+  - id: agent-loop-interleave
+    title: Model call and host action interleaved in one session
+    rule: rules/correlation/agent_loop_interleave.spl
+    attack: [T1102, T1071.001]
+    fixtures:
+      - events: fixtures/agent_loop_interleave.alert.json
+        expect: alert
+      - events: fixtures/agent_loop_interleave.benign.json
+        expect: clean
+
+  - id: agent-retry-storm
+    title: Error-driven self-correction retry loops
+    rule: rules/correlation/agent_retry_storm.spl
+    attack: [T1059]
+    fixtures:
+      - events: fixtures/agent_retry_storm.alert.json
+        expect: alert
+      - events: fixtures/agent_retry_storm.benign.json
+        expect: clean
+
+  - id: sensitive-read-llm-exfil
+    title: Sensitive read followed by a large POST to a model API
+    rule: rules/correlation/sensitive_read_llm_exfil.spl
+    attack: [T1567, T1041]
+    fixtures:
+      - events: fixtures/sensitive_read_llm_exfil.alert.json
+        expect: alert
+      - events: fixtures/sensitive_read_llm_exfil.benign.json
+        expect: clean

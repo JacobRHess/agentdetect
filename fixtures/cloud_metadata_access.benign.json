@@ -1,0 +1,16 @@
+[
+  {
+    "timestamp": "2026-07-07T14:11:44.300Z",
+    "event_type": "network_connection",
+    "host": "app-worker-03",
+    "session": "s-imds-b",
+    "user": "svc-deploy",
+    "pid": 41560,
+    "image": "/usr/bin/psql",
+    "dest_host": "10.0.3.14",
+    "dest_port": 5432,
+    "protocol": "tcp",
+    "bytes_out": 980,
+    "bytes_in": 20400
+  }
+]

@@ -1,0 +1,5 @@
+event_type IN ("process_creation", "network_connection")
+| eval is_read=if(event_type=="process_creation" AND match(command_line, "(?i)(\.aws/credentials|\.ssh/id_|/etc/shadow|\.kube/config|\.git-credentials|(^|\s)secret|(^|\s)token|password)"), _time, null())
+| eval is_exfil=if(event_type=="network_connection" AND (dest_host=="api.anthropic.com" OR dest_host=="api.openai.com" OR dest_host=="api.mistral.ai" OR dest_host=="api.cohere.ai" OR dest_host=="api.x.ai" OR dest_host=="api.deepseek.com" OR dest_host=="api.groq.com" OR dest_host=="api.together.xyz" OR dest_host=="openrouter.ai" OR dest_host=="generativelanguage.googleapis.com") AND bytes_out>=20000, _time, null())
+| stats max(is_read) as t_read, max(is_exfil) as t_exfil by session
+| where isnotnull(t_read) AND isnotnull(t_exfil) AND t_exfil>=t_read AND (t_exfil-t_read)<=180

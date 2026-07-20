@@ -1,0 +1,17 @@
+[
+  {
+    "timestamp": "2026-07-07T14:05:03.900Z",
+    "event_type": "network_connection",
+    "host": "app-worker-03",
+    "session": "s-sdk-a",
+    "user": "svc-deploy",
+    "pid": 41190,
+    "image": "/usr/bin/python3",
+    "dest_host": "llm-gw.internal.corp",
+    "dest_port": 443,
+    "protocol": "tcp",
+    "bytes_out": 744,
+    "bytes_in": 2210,
+    "user_agent": "anthropic-python/0.40.0 httpx/0.27.0"
+  }
+]

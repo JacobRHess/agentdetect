@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>agentdetect: when the intruder is a language model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Spline+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c1a17; --muted:#6b655c; --line:#e4ddd1; --paper:#f6f2e9;
+    --card:#fffdf8; --accent:#7c4dff; --accent-ink:#4a2fb0;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font:16px/1.65 "Spline Sans",system-ui,sans-serif;}
+  .wrap{max-width:940px;margin:0 auto;padding:0 24px}
+  h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:500;line-height:1.12;margin:0}
+  a{color:var(--accent-ink)}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;
+    background:#efe9dc;border-radius:4px;padding:.08em .35em}
+
+  header{padding:76px 0 40px}
+  .kicker{font-size:13px;letter-spacing:.02em;color:var(--muted);margin:0 0 18px}
+  h1{font-size:clamp(38px,6vw,62px)}
+  h1 em{font-style:italic;color:var(--accent-ink)}
+  .lede{font-size:20px;color:#403b34;max-width:38ch;margin:22px 0 0}
+  .cta{margin:30px 0 0;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .btn{font-weight:600;text-decoration:none;border:1px solid var(--ink);
+    color:var(--ink);border-radius:999px;padding:9px 18px}
+  .btn.solid{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+  section{padding:38px 0;border-top:1px solid var(--line)}
+  h2{font-size:28px}
+  .sub{color:var(--muted);margin:8px 0 24px;max-width:60ch}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  @media(max-width:680px){.two{grid-template-columns:1fr}}
+  .lead-in{font-family:"Fraunces",serif;font-size:19px;font-style:italic;color:#403b34}
+
+  .det{border-top:1px solid var(--line);padding:16px 0;display:grid;
+    grid-template-columns:150px 1fr;gap:18px}
+  .det:first-of-type{border-top:0}
+  .det .name{font-family:"Fraunces",serif;font-size:17px}
+  .det .name span{display:block;font-family:"Spline Sans";font-size:12px;
+    color:var(--muted);margin-top:3px}
+  .det p{margin:0;color:#403b34;font-size:15px}
+  .tag{display:inline-block;font-size:12px;color:var(--accent-ink);
+    border:1px solid #d9cff5;background:#f2edff;border-radius:999px;
+    padding:1px 8px;margin:6px 6px 0 0}
+
+  pre{background:#1c1a17;color:#f3eee2;border-radius:10px;padding:16px 18px;
+    overflow-x:auto;font-size:13.5px;line-height:1.6}
+  .flow{white-space:pre;font-family:ui-monospace,Consolas,monospace;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:18px;overflow-x:auto;font-size:13px;color:#403b34}
+
+  footer{padding:44px 0 70px;color:var(--muted);font-size:14px}
+  .cols{columns:2;column-gap:34px}
+  @media(max-width:680px){.cols{columns:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="kicker">detection engineering · autonomous-agent tradecraft</p>
+  <h1>The intruder is a <em>language model.</em></h1>
+  <p class="lede">A pack of detections tuned to how an autonomous LLM agent
+    operates a host, shipped with the telemetry that proves each one fires.</p>
+  <div class="cta">
+    <a class="btn solid" href="https://github.com/JacobRHess/agentdetect">Repository</a>
+    <a class="btn" href="ATTACK.md">ATT&amp;CK coverage</a>
+  </div>
+</header>
+
+<section>
+  <p class="lead-in">A model API on an allowlist is not a detection.</p>
+  <div class="two" style="margin-top:18px">
+    <p>The interesting signal isn't that a host talked to a model API. It's that
+      the same session talked to a model <em>and acted on the host between
+      calls</em>, again and again, at a tempo no human types at and no script
+      pauses for. agentdetect keys on that rhythm, not on any one payload.</p>
+    <p>Every detection ships with two traces: an attack sample that must fire it
+      and a benign near-miss that must stay silent. CI replays both through a
+      real Splunk on every push. A rule that matches everything fails the benign
+      half; a rule that matches nothing fails the attack half.</p>
+  </div>
+</section>
+
+<section>
+  <h2>The behavioral flagships</h2>
+  <p class="sub">Signals that survive when the adversary vendors the SDK, spoofs
+    the user agent, or rotates infrastructure, because they measure how an agent
+    <em>operates</em>, not what it downloads.</p>
+
+  <div class="det">
+    <div class="name">agent-loop-interleave<span>native Splunk</span></div>
+    <p>Model call, host action, model call, host action, repeated in one
+      session. The signature of a tool-use loop, and the one thing a benign AI
+      feature never does: it calls the model; it doesn't then run
+      <code>cat /etc/passwd</code>.
+      <span class="tag">T1102</span><span class="tag">T1071.001</span></p>
+  </div>
+  <div class="det">
+    <div class="name">agent-command-cadence<span>native Splunk</span></div>
+    <p>Non-interactive command bursts spaced by inference-latency gaps: faster
+      and more regular than a human, far slower than a shell script.
+      <span class="tag">T1059</span></p>
+  </div>
+  <div class="det">
+    <div class="name">agent-retry-storm<span>native Splunk</span></div>
+    <p>The same tool re-run with a tweak within seconds of each failure, over and
+      over. Machine self-correction, not a human giving up.
+      <span class="tag">T1059</span></p>
+  </div>
+  <div class="det">
+    <div class="name">recon-breadth-burst<span>native Splunk</span></div>
+    <p>One session sweeping six or more distinct discovery categories inside two
+      minutes, because a model already knows every path worth checking.
+      <span class="tag">T1082</span><span class="tag">T1057</span><span class="tag">T1033</span></p>
+  </div>
+  <div class="det">
+    <div class="name">sensitive-read-llm-exfil<span>native Splunk</span></div>
+    <p>A credential read followed by a large POST to a model API. Exfiltration
+      wearing a prompt as a costume.
+      <span class="tag">T1567</span><span class="tag">T1041</span></p>
+  </div>
+</section>
+
+<section>
+  <h2>Telemetry, not science fiction</h2>
+  <p class="sub">Every fixture is written in one small schema modeling the two
+    events any Linux EDR already emits: process creation and network
+    connection. Nothing here needs a feed you don't collect. The novelty is in
+    what the rules look for.</p>
+<div class="flow">           detections.yaml  (single source of truth)
+                  │
+      ┌───────────┴───────────┐
+  rules/**/*.yml          rules/**/*.spl
+    (Sigma)               (native Splunk)
+      │                        │
+  Sigma → SPL             run as-is
+      └───────────┬───────────┘
+              Splunk (CI service)
+      index a fixture's events, run the search
+                  │
+       attack trace → must fire
+       benign trace → must stay silent</div>
+</section>
+
+<section>
+  <h2>The fixtures don't have to be hand-written</h2>
+  <div class="two">
+    <p>The <code>emulate</code> command hands an objective to a real Claude agent,
+      gives it one <code>run_shell</code> tool wired into a throwaway container
+      stocked with synthetic honeypot data, and records what it actually does
+      (every command, its exit code, its timing) into the same schema. The
+      attacker isn't scripted; a model decides what to run, and its real
+      operating rhythm becomes the trace.</p>
+    <div>
+<pre>uv sync --extra emulate
+export ANTHROPIC_API_KEY=...
+agentdetect emulate recon-and-loot \
+  --out fixtures/emulated.alert.json</pre>
+    <p class="sub" style="margin-top:14px">Runs only against the sandbox, needs
+      your own key, never runs in CI.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="cols">
+    <p>agentdetect is a detection-engineering portfolio project by Jacob Hess.
+      Ten detections across the agent kill chain, each tagged to MITRE ATT&amp;CK
+      and proven against a real Splunk in CI.</p>
+    <p>Field-match anchors (traffic to a model API, an SDK user agent, a
+      credential read, an IMDS hit) are shipped too, and deliberately labelled
+      as the brittle, spoofable half, to make the case for the behavioral rules
+      beside them.</p>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

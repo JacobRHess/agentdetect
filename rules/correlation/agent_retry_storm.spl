@@ -1,0 +1,7 @@
+event_type=process_creation
+| sort 0 session, _time
+| eval exe=mvindex(split(command_line, " "), 0)
+| streamstats current=f last(exit_code) as prev_exit last(exe) as prev_exe last(_time) as prev_t by session
+| eval retry=if(isnum(prev_exit) AND prev_exit!=0 AND (_time-prev_t)<=12 AND exe==prev_exe, 1, 0)
+| stats sum(retry) as retries, count as cmds by session
+| where retries>=3

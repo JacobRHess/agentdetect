@@ -1,0 +1,132 @@
+{
+  "name": "agentdetect coverage",
+  "description": "Detections for autonomous LLM-agent tradecraft, proven against Splunk.",
+  "domain": "enterprise-attack",
+  "versions": {
+    "attack": "16",
+    "navigator": "5.1.0",
+    "layer": "4.5"
+  },
+  "techniques": [
+    {
+      "techniqueID": "T1016",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "recon-breadth-burst",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1033",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "recon-breadth-burst",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1041",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "sensitive-read-llm-exfil",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1057",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "recon-breadth-burst",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1059",
+      "score": 2,
+      "color": "#8957e5",
+      "comment": "agent-command-cadence, agent-retry-storm",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1069",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "recon-breadth-burst",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1070.003",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "shell-history-tamper",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1071.001",
+      "score": 3,
+      "color": "#8957e5",
+      "comment": "agent-loop-interleave, llm-api-egress, llm-sdk-user-agent",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1082",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "recon-breadth-burst",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1102",
+      "score": 2,
+      "color": "#8957e5",
+      "comment": "agent-loop-interleave, llm-api-egress",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1518",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "recon-breadth-burst",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1552.001",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "credential-file-harvest",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1552.005",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "cloud-metadata-access",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1562.003",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "shell-history-tamper",
+      "enabled": true
+    },
+    {
+      "techniqueID": "T1567",
+      "score": 1,
+      "color": "#8957e5",
+      "comment": "sensitive-read-llm-exfil",
+      "enabled": true
+    }
+  ],
+  "gradient": {
+    "colors": [
+      "#ffffff",
+      "#8957e5"
+    ],
+    "minValue": 0,
+    "maxValue": 3
+  },
+  "legendItems": [
+    {
+      "label": "covered by an agentdetect detection",
+      "color": "#8957e5"
+    }
+  ],
+  "hideDisabled": false
+}

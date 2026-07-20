@@ -1,0 +1,14 @@
+[
+  {
+    "timestamp": "2026-07-07T14:14:02.000Z",
+    "event_type": "process_creation",
+    "host": "app-worker-03",
+    "session": "s-hist-a",
+    "user": "svc-deploy",
+    "pid": 41700,
+    "image": "/usr/bin/bash",
+    "command_line": "export HISTFILE=/dev/null",
+    "tty": "",
+    "exit_code": 0
+  }
+]

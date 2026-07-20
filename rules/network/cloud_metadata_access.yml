@@ -1,0 +1,29 @@
+title: Access to the cloud instance metadata service
+id: 1a2b3c4d-0004-4a5b-8c6d-000000000004
+status: experimental
+description: >
+  A process reached the link-local instance metadata service (IMDS). On a cloud
+  host this endpoint hands out the instance's role credentials, and it is the
+  single highest-value target for anything that has landed code execution. An
+  agent instructed to escalate or move laterally goes here almost reflexively.
+references:
+  - https://attack.mitre.org/techniques/T1552/005/
+logsource:
+  product: linux
+  category: network_connection
+detection:
+  selection:
+    event_type: network_connection
+    dest_host:
+      - 169.254.169.254
+      - metadata.google.internal
+      - 100.100.100.200
+  condition: selection
+falsepositives:
+  - Cloud SDKs and agents (the CloudWatch agent, the SSM agent, cloud-init)
+    refresh instance credentials from IMDS as designed. Scope those images out;
+    an interactive shell or a batch worker hitting IMDS is the anomaly.
+level: medium
+tags:
+  - attack.credential-access
+  - attack.t1552.005

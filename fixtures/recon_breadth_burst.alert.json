@@ -1,0 +1,10 @@
+[
+  {"timestamp": "2026-07-07T15:00:00.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-a", "user": "svc-deploy", "pid": 42001, "image": "/usr/bin/whoami", "command_line": "whoami", "tty": "", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:00:02.300Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-a", "user": "svc-deploy", "pid": 42002, "image": "/usr/bin/uname", "command_line": "uname -a", "tty": "", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:00:05.100Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-a", "user": "svc-deploy", "pid": 42003, "image": "/usr/sbin/ip", "command_line": "ip addr show", "tty": "", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:00:07.800Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-a", "user": "svc-deploy", "pid": 42004, "image": "/usr/bin/ps", "command_line": "ps aux", "tty": "", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:00:10.400Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-a", "user": "svc-deploy", "pid": 42005, "image": "/usr/bin/env", "command_line": "env", "tty": "", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:00:13.200Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-a", "user": "svc-deploy", "pid": 42006, "image": "/usr/bin/sudo", "command_line": "sudo -l", "tty": "", "exit_code": 1},
+  {"timestamp": "2026-07-07T15:00:17.900Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-a", "user": "svc-deploy", "pid": 42007, "image": "/usr/bin/find", "command_line": "find / -perm -4000 -type f 2>/dev/null", "tty": "", "exit_code": 0},
+  {"timestamp": "2026-07-07T15:00:24.600Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-recon-a", "user": "svc-deploy", "pid": 42008, "image": "/usr/bin/cat", "command_line": "cat /etc/passwd", "tty": "", "exit_code": 0}
+]

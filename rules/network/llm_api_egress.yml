@@ -1,0 +1,41 @@
+title: Outbound traffic to a large language model inference API
+id: 1a2b3c4d-0001-4a5b-8c6d-000000000001
+status: experimental
+description: >
+  A process on a server opened a connection to a public LLM inference endpoint.
+  On a workstation this is unremarkable; on a service host running batch or web
+  workloads it is not, and it is the first thread to pull when the "operator" of
+  a session may be an autonomous agent driving the host through a model. On its
+  own this is an anchor, deliberately broad: pair it with the behavioral
+  detections (agent-loop-interleave, agent-command-cadence) to separate a benign
+  AI feature from an agent acting on the host between model calls.
+references:
+  - https://attack.mitre.org/techniques/T1071/001/
+  - https://attack.mitre.org/techniques/T1102/
+logsource:
+  product: linux
+  category: network_connection
+detection:
+  selection:
+    event_type: network_connection
+    dest_host:
+      - api.anthropic.com
+      - api.openai.com
+      - api.mistral.ai
+      - api.cohere.ai
+      - api.x.ai
+      - api.deepseek.com
+      - api.groq.com
+      - api.together.xyz
+      - openrouter.ai
+      - generativelanguage.googleapis.com
+  condition: selection
+falsepositives:
+  - A host that legitimately runs an approved LLM-backed feature. Scope its
+    service account out, or rely on the behavioral detections that require the
+    host to also be acting on model output.
+level: medium
+tags:
+  - attack.command-and-control
+  - attack.t1071.001
+  - attack.t1102

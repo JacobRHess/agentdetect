@@ -1,0 +1,16 @@
+[
+  {
+    "timestamp": "2026-07-07T14:11:44.300Z",
+    "event_type": "network_connection",
+    "host": "app-worker-03",
+    "session": "s-imds-a",
+    "user": "svc-deploy",
+    "pid": 41560,
+    "image": "/usr/bin/curl",
+    "dest_host": "169.254.169.254",
+    "dest_port": 80,
+    "protocol": "tcp",
+    "bytes_out": 210,
+    "bytes_in": 1840
+  }
+]

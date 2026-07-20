@@ -1,0 +1,117 @@
+[project]
+name = "agentdetect"
+version = "0.1.0"
+description = "Detections for when the intruder is an autonomous LLM agent, shipped with the telemetry that proves they fire"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Jacob Hess" }]
+dependencies = [
+    "pyyaml>=6.0",
+    "pysigma>=0.11",
+    "pysigma-backend-splunk>=1.1",
+    "requests>=2.32",
+]
+
+[project.optional-dependencies]
+# The emulation loop drives a real Claude agent inside a throwaway container to
+# generate attack traces. It is never exercised in CI, so the Anthropic SDK is
+# an opt-in extra rather than a core dependency: `uv sync --extra emulate`.
+emulate = ["anthropic>=0.40"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-PyYAML>=6.0",
+    "types-requests>=2.32",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
+]
+
+[project.scripts]
+agentdetect = "agentdetect.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentdetect"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "I", "B", "UP", "SIM", "PTH", "RUF",
+    "S",     # bandit-style security checks
+    "TRY",   # raise/exception style
+    "C4",    # comprehension hygiene
+    "A",     # builtin shadowing
+    "PT",    # pytest style
+    "RET",   # return-statement hygiene
+    "ICN",   # import conventions
+    "ERA",   # commented-out code
+]
+ignore = [
+    # The manifest validator and the engine client exist to turn opaque failures
+    # into contextual messages; a one-shot exception subclass per message would
+    # be worse than the inline string.
+    "TRY003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # asserts are how pytest works
+# The emulation loop drives the docker CLI by name (it is on PATH by design) and
+# subprocess is the intended transport; the argv lists carry no untrusted shell.
+"src/agentdetect/emulate.py" = ["S607"]
+
+[tool.bandit]
+# B404/B603/B607: the emulation loop drives the docker binary by name (on PATH
+# by design) with argument lists, no shell, and no untrusted strings in argv.
+# requests is the transport for the Splunk client; URLs are built from confined
+# config and TLS verification is a documented, env-gated choice for the
+# self-signed local lab.
+skips = ["B404", "B603", "B607"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+# The Anthropic SDK is imported lazily by the emulation loop, which is run by
+# hand against a live API key, not by the type-checked unit suite.
+module = "anthropic.*"
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = ["src/agentdetect"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# The Splunk client, the engine wrapper around it, and the emulation loop are
+# exercised by the CI validate job against a real Splunk (and by hand against a
+# real API key). Mocking the transport to chase a unit-coverage number here
+# would hide the failures the replay job exists to catch.
+omit = [
+    "src/agentdetect/splunk.py",
+    "src/agentdetect/engine.py",
+    "src/agentdetect/emulate.py",
+]
+fail_under = 90
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The default run is the offline gate: deselect the replay tests that need a
+# live Splunk. The CI validate job (and the local lab) opt back in with
+# `-m replay`.
+addopts = '-ra -m "not replay"'
+markers = [
+    "replay: requires a live Splunk (CI validate job)",
+]

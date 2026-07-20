@@ -1,0 +1,4 @@
+[
+  {"timestamp": "2026-07-07T16:20:00.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-exfil-a", "user": "svc-deploy", "pid": 46001, "image": "/usr/bin/cat", "command_line": "cat /home/svc-deploy/.aws/credentials", "tty": "", "exit_code": 0},
+  {"timestamp": "2026-07-07T16:20:03.500Z", "event_type": "network_connection", "host": "app-worker-03", "session": "s-exfil-a", "user": "svc-deploy", "pid": 46002, "image": "/usr/bin/python3", "dest_host": "api.anthropic.com", "dest_port": 443, "protocol": "tcp", "bytes_out": 48120, "bytes_in": 1350, "user_agent": "anthropic-python/0.40.0"}
+]

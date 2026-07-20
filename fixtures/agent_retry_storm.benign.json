@@ -1,0 +1,8 @@
+[
+  {"timestamp": "2026-07-07T16:10:00.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-b", "user": "svc-deploy", "pid": 45101, "image": "/usr/bin/ls", "command_line": "ls /opt/app", "tty": "pts/0", "exit_code": 0},
+  {"timestamp": "2026-07-07T16:10:04.500Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-b", "user": "svc-deploy", "pid": 45102, "image": "/usr/bin/systemctl", "command_line": "systemctl status app", "tty": "pts/0", "exit_code": 0},
+  {"timestamp": "2026-07-07T16:10:12.300Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-b", "user": "svc-deploy", "pid": 45103, "image": "/usr/bin/tail", "command_line": "tail -n 100 /var/log/app/app.log", "tty": "pts/0", "exit_code": 0},
+  {"timestamp": "2026-07-07T16:10:20.900Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-b", "user": "svc-deploy", "pid": 45104, "image": "/usr/bin/grep", "command_line": "grep -c ERROR /var/log/app/app.log", "tty": "pts/0", "exit_code": 1},
+  {"timestamp": "2026-07-07T16:10:31.700Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-b", "user": "svc-deploy", "pid": 45105, "image": "/usr/bin/systemctl", "command_line": "systemctl restart app", "tty": "pts/0", "exit_code": 0},
+  {"timestamp": "2026-07-07T16:10:39.100Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-b", "user": "svc-deploy", "pid": 45106, "image": "/usr/bin/curl", "command_line": "curl -sf http://localhost:8080/healthz", "tty": "pts/0", "exit_code": 0}
+]
