@@ -1,0 +1,11 @@
+# Port of recon_breadth_burst.spl. Fidelity: close.
+# The SPL rule measures the span of a whole session's recon commands. LogQL has
+# no per-session span here, so the 120 s bound becomes the range itself: six or
+# more discovery categories inside any two-minute window.
+count by (session) (
+  sum by (session, recon) (
+    count_over_time({job="agentdetect"} | json | event_type="process_creation"
+      | label_format recon=`{{ if count "(?i)(^|[[:space:]])(whoami|id)([[:space:]]|$)" .command_line }}identity{{ else if count "(?i)(uname|hostname|lsb_release|/etc/os-release|/etc/issue)" .command_line }}sysinfo{{ else if count "(?i)(ip[[:space:]]+a|ip[[:space:]]+addr|ifconfig|netstat|(^|[[:space:]])ss[[:space:]]+-|(^|[[:space:]])route([[:space:]]|$))" .command_line }}netconfig{{ else if count "(?i)((^|[[:space:]])ps[[:space:]]|pgrep|(^|[[:space:]])top([[:space:]]|$)|htop)" .command_line }}procs{{ else if count "(?i)((^|[[:space:]])env([[:space:]]|$)|printenv)" .command_line }}env{{ else if count "(?i)sudo[[:space:]]+-l" .command_line }}privs{{ else if count "(?i)(crontab[[:space:]]+-l|systemctl[[:space:]]+list|service[[:space:]]+--status-all)" .command_line }}services{{ else if count "(?i)(-perm[[:space:]]+[-/]?[0-9]*4000)" .command_line }}suid{{ else if count "(?i)(/etc/passwd|getent[[:space:]]+passwd|/etc/shadow)" .command_line }}accounts{{ else if count "(?i)((^|[[:space:]])mount([[:space:]]|$)|lsblk|(^|[[:space:]])df[[:space:]]+-)" .command_line }}storage{{ else if count "(?i)(dpkg[[:space:]]+-l|rpm[[:space:]]+-qa|apt[[:space:]]+list|pip[[:space:]]+list)" .command_line }}software{{ end }}`
+      | recon != "" [2m])
+  )
+) >= 6

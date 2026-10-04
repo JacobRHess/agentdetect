@@ -1,10 +1,11 @@
-# Local lab: a single-node Splunk, the same engine the CI validate job boots.
-# Bring it up, then `uv run pytest -m replay` replays every fixture through it.
+# Local lab: a single-node Splunk and a single-binary Loki, the same engines the
+# CI validate job boots. Bring them up, then `uv run pytest -m replay` replays
+# every fixture through both.
 #
 #   docker compose -f lab/docker-compose.yml up -d
 #
-# Splunk listens on 8000 (web), 8088 (HEC), 8089 (REST). Throwaway dev
-# credentials; nothing here is a secret.
+# Splunk listens on 8000 (web), 8088 (HEC), 8089 (REST); Loki on 3100.
+# Throwaway dev credentials; nothing here is a secret.
 services:
   splunk:
     image: splunk/splunk:9.4.2
@@ -24,3 +25,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: ad-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml

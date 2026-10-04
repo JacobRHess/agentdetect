@@ -1,0 +1,11 @@
+# Port of agent_retry_storm.spl. Fidelity: approximate.
+# The SPL rule counts a retry when a command's immediate predecessor in the
+# session failed, ran the same executable, and finished at most 12 s earlier.
+# This port counts, per executable, every failed run that was followed by
+# another run of that executable (failures minus one if the last run failed).
+# It cannot see the 12 s bound or whether other commands ran in between.
+sum by (session) (
+  sum_over_time({job="agentdetect"} | json | event_type="process_creation" | label_format exe=`{{ regexReplaceAll "[[:space:]].*" .command_line "" }}`, failed=`{{ if eq .exit_code "0" }}0{{ else }}1{{ end }}` | keep session, exe, failed | unwrap failed [5m])
+  -
+  last_over_time({job="agentdetect"} | json | event_type="process_creation" | label_format exe=`{{ regexReplaceAll "[[:space:]].*" .command_line "" }}`, failed=`{{ if eq .exit_code "0" }}0{{ else }}1{{ end }}` | keep session, exe, failed | unwrap failed [5m])
+) >= 3

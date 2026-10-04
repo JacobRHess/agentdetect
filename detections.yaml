@@ -60,6 +60,7 @@ detections:
   - id: recon-breadth-burst
     title: Broad host reconnaissance compressed into one session
     rule: rules/correlation/recon_breadth_burst.spl
+    logql: rules/correlation/recon_breadth_burst.logql
     attack: [T1082, T1057, T1016, T1033, T1518, T1069]
     fixtures:
       - events: fixtures/recon_breadth_burst.alert.json
@@ -70,6 +71,7 @@ detections:
   - id: agent-command-cadence
     title: Reasoning-paced command cadence of an autonomous agent
     rule: rules/correlation/agent_command_cadence.spl
+    logql: rules/correlation/agent_command_cadence.logql
     attack: [T1059]
     fixtures:
       - events: fixtures/agent_command_cadence.alert.json
@@ -82,30 +84,52 @@ detections:
       # many).
       - events: fixtures/agent_command_cadence_poll.benign.json
         expect: clean
+      # A staged deploy: bursts of commands 0.1s apart with a 12s health-wait
+      # between stages. The mean gap sits in the agent band but no single gap
+      # does. SPL measures every gap and stays silent; the LogQL port only knows
+      # the mean, so it fires. A known gap in the port, pinned here.
+      - events: fixtures/agent_command_cadence_staged.benign.json
+        expect: clean
+        diverges: [loki]
 
   - id: agent-loop-interleave
     title: Model call and host action interleaved in one session
     rule: rules/correlation/agent_loop_interleave.spl
+    logql: rules/correlation/agent_loop_interleave.logql
     attack: [T1102, T1071.001]
     fixtures:
       - events: fixtures/agent_loop_interleave.alert.json
         expect: alert
       - events: fixtures/agent_loop_interleave.benign.json
         expect: clean
+      # Four model calls, then four host commands: the same event mix as an
+      # agent loop but only one call -> act step. Both engines must count steps,
+      # not events, to stay silent.
+      - events: fixtures/agent_loop_interleave_blocks.benign.json
+        expect: clean
 
   - id: agent-retry-storm
     title: Error-driven self-correction retry loops
     rule: rules/correlation/agent_retry_storm.spl
+    logql: rules/correlation/agent_retry_storm.logql
     attack: [T1059]
     fixtures:
       - events: fixtures/agent_retry_storm.alert.json
         expect: alert
       - events: fixtures/agent_retry_storm.benign.json
         expect: clean
+      # A backup wrapper retrying rsync on a fixed 30s backoff. SPL requires the
+      # retry inside 12s of the failure and stays silent; the LogQL port cannot
+      # see the gap between a failure and its retry, so it fires. A known gap in
+      # the port, pinned here.
+      - events: fixtures/agent_retry_storm_backoff.benign.json
+        expect: clean
+        diverges: [loki]
 
   - id: sensitive-read-llm-exfil
     title: Sensitive read followed by a large POST to a model API
     rule: rules/correlation/sensitive_read_llm_exfil.spl
+    logql: rules/correlation/sensitive_read_llm_exfil.logql
     attack: [T1567, T1041]
     fixtures:
       - events: fixtures/sensitive_read_llm_exfil.alert.json

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from agentdetect.cli import _check_spl, main
+from agentdetect.cli import _check_logql, _check_spl, main
 from agentdetect.manifest import Detection, RuleKind
 
 
@@ -34,6 +34,23 @@ def test_convert_spl(capsys: pytest.CaptureFixture[str]) -> None:
     assert "streamstats" in capsys.readouterr().out
 
 
+def test_convert_sigma_to_logql(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["convert", "llm-api-egress", "--engine", "loki"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith('{job="agentdetect"} | json')
+    assert "dest_host" in out
+
+
+def test_convert_native_logql(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["convert", "agent-loop-interleave", "--engine", "loki"]) == 0
+    assert "rate_counter" in capsys.readouterr().out
+
+
+def test_list_names_diverging_engines(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["list"]) == 0
+    assert "agent_retry_storm_backoff.benign.json   diverges: loki" in capsys.readouterr().out
+
+
 def test_convert_unknown_id() -> None:
     assert main(["convert", "does-not-exist"]) == 2
 
@@ -59,7 +76,15 @@ def test_emulate_requires_objective() -> None:
 
 
 def _detection_with_rule(rule: Path) -> Detection:
-    return Detection(id="x", title="x", rule=rule, kind=RuleKind.SPL, attack=(), fixtures=())
+    return Detection(
+        id="x", title="x", rule=rule, kind=RuleKind.SPL, logql=None, attack=(), fixtures=()
+    )
+
+
+def _detection_with_logql(logql: Path) -> Detection:
+    return Detection(
+        id="x", title="x", rule=logql, kind=RuleKind.SPL, logql=logql, attack=(), fixtures=()
+    )
 
 
 def test_check_spl_rejects_empty(tmp_path: Path) -> None:
@@ -81,3 +106,24 @@ def test_check_spl_rejects_unbalanced_parens(tmp_path: Path) -> None:
     rule.write_text("event_type=process_creation (a AND b", encoding="utf-8")
     with pytest.raises(Exception, match="unbalanced"):
         _check_spl(_detection_with_rule(rule))
+
+
+def test_check_logql_rejects_missing_port(tmp_path: Path) -> None:
+    rule = tmp_path / "rule.spl"
+    rule.write_text("event_type=process_creation", encoding="utf-8")
+    with pytest.raises(Exception, match="no LogQL port"):
+        _check_logql(_detection_with_rule(rule))
+
+
+def test_check_logql_rejects_unscopable_selector(tmp_path: Path) -> None:
+    logql = tmp_path / "wide.logql"
+    logql.write_text('sum(count_over_time({job=~".+"} [5m])) > 0', encoding="utf-8")
+    with pytest.raises(Exception, match="must select"):
+        _check_logql(_detection_with_logql(logql))
+
+
+def test_check_logql_rejects_unbalanced_parens(tmp_path: Path) -> None:
+    logql = tmp_path / "paren.logql"
+    logql.write_text('sum(count_over_time({job="agentdetect"} [5m]) > 0', encoding="utf-8")
+    with pytest.raises(Exception, match="unbalanced"):
+        _check_logql(_detection_with_logql(logql))

@@ -1,0 +1,14 @@
+# Port of agent_loop_interleave.spl. Fidelity: matches SPL on every sequence tested.
+# LogQL has no streamstats, so there is no direct way to ask "what was the
+# previous event". rate_counter stands in for it: each event becomes a sample
+# (model call = 0, host command = 1), and the counter-reset correction makes the
+# increase over the range equal the number of 0 -> 1 steps, which is the number
+# of model-call -> command cycles. Multiplying the per-second rate by the 300 s
+# range turns it back into that count. Loki extrapolates the rate very slightly
+# (three cycles measured as 3.00006), so the threshold is 2.5 rather than 3 to
+# keep a rounding wobble from ever dropping a real third cycle.
+sum by (session) (
+  rate_counter({job="agentdetect"} | json | event_type=~"process_creation|network_connection"
+    | label_format kind=`{{ if eq .event_type "process_creation" }}1{{ else if count "^(api[.]anthropic[.]com|api[.]openai[.]com|api[.]mistral[.]ai|api[.]cohere[.]ai|api[.]x[.]ai|api[.]deepseek[.]com|api[.]groq[.]com|api[.]together[.]xyz|openrouter[.]ai|generativelanguage[.]googleapis[.]com)$" .dest_host }}0{{ end }}`
+    | kind != "" | keep session, kind | unwrap kind [5m])
+) * 300 >= 2.5

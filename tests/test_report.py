@@ -41,3 +41,21 @@ def test_no_raw_html_injection() -> None:
     }
     html = render(detections, results)
     assert "<script>alert(1)</script>" not in html
+
+
+def test_loki_report_names_the_engine_and_the_logql_rules() -> None:
+    html = render(load(), {}, engine="loki")
+    assert "replayed through Loki" in html
+    assert "agent_loop_interleave.logql" in html
+    assert "agent_loop_interleave.spl" not in html
+
+
+def test_declared_divergence_renders_as_gap_not_pass() -> None:
+    detections = load()
+    results = {
+        (det.id, fx.name): CellResult(True, "detail", diverges=bool(fx.diverges))
+        for det in detections
+        for fx in det.fixtures
+    }
+    html = render(detections, results, engine="loki")
+    assert html.count(">GAP<") == 2

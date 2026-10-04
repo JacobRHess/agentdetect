@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from agentdetect.harness import evaluate
@@ -57,3 +58,29 @@ def test_clean_fixture_fails_when_it_fires() -> None:
     verdict = evaluate(det, clean, _StubEngine(fires=True))
     assert not verdict.passed
     assert "must not alert" in verdict.detail
+
+
+def test_declared_divergence_passes_only_on_the_opposite_answer() -> None:
+    det = _first()
+    clean = next(fx for fx in det.fixtures if fx.expect is Expect.CLEAN)
+    diverging = replace(clean, diverges=frozenset({"stub"}))
+
+    fired = evaluate(det, diverging, _StubEngine(fires=True))
+    assert fired.passed
+    assert fired.diverges
+    assert "documented divergence" in fired.detail
+
+    # The declaration is strict in both directions: a port that starts agreeing
+    # with the original fails until the manifest stops claiming it diverges.
+    silent = evaluate(det, diverging, _StubEngine(fires=False))
+    assert not silent.passed
+    assert "declared to diverge" in silent.detail
+
+
+def test_divergence_is_scoped_to_the_named_engine() -> None:
+    det = _first()
+    clean = next(fx for fx in det.fixtures if fx.expect is Expect.CLEAN)
+    elsewhere = replace(clean, diverges=frozenset({"some-other-engine"}))
+    verdict = evaluate(det, elsewhere, _StubEngine(fires=False))
+    assert verdict.passed
+    assert not verdict.diverges

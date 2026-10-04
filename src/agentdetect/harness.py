@@ -8,6 +8,10 @@ The contract is strict:
   is the half that catches a detection that "works" only because it matches
   everything - or, here, one that flags any process that ever talks to a model
   API rather than the agent loop that acts on the host between calls.
+* A fixture that lists an engine under ``diverges`` flips the requirement for
+  that engine only. It records a port that is knowingly weaker than the
+  original, and it is just as strict: if the port is later fixed and starts
+  agreeing, the cell fails until the manifest is updated.
 """
 
 from __future__ import annotations
@@ -26,9 +30,17 @@ class Verdict:
     expect: Expect
     fired: bool
     passed: bool
+    diverges: bool = False
 
     @property
     def detail(self) -> str:
+        if self.diverges:
+            answer = "fired" if self.fired else "stayed silent"
+            return (
+                f"{answer}, the documented divergence for this engine"
+                if self.passed
+                else f"{answer}, but this engine is declared to diverge here"
+            )
         if self.expect is Expect.ALERT:
             return (
                 "fired on its attack sample as required"
@@ -45,7 +57,9 @@ class Verdict:
 def evaluate(detection: Detection, fixture: Fixture, engine: Engine) -> Verdict:
     events = load_events(fixture.events)
     fired = engine.replay(detection, events)
-    passed = fired if fixture.expect is Expect.ALERT else not fired
+    diverges = engine.name in fixture.diverges
+    should_fire = (fixture.expect is Expect.ALERT) != diverges
+    passed = fired == should_fire
     return Verdict(
         detection_id=detection.id,
         engine=engine.name,
@@ -53,4 +67,5 @@ def evaluate(detection: Detection, fixture: Fixture, engine: Engine) -> Verdict:
         expect=fixture.expect,
         fired=fired,
         passed=passed,
+        diverges=diverges,
     )
