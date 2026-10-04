@@ -151,7 +151,7 @@ def dashboard() -> dict[str, Any]:
                 "type": "table",
                 "title": "Sessions flagged by the behavioral rules",
                 "datasource": _DATASOURCE,
-                "gridPos": {"h": 9, "w": 10, "x": 0, "y": 0},
+                "gridPos": {"h": 13, "w": 10, "x": 0, "y": 0},
                 "targets": flagged_targets,
                 "transformations": [
                     {"id": "merge", "options": {}},
@@ -171,7 +171,7 @@ def dashboard() -> dict[str, Any]:
                 "type": "bargauge",
                 "title": "Model call to command cycles per session (fires at 2.5)",
                 "datasource": _DATASOURCE,
-                "gridPos": {"h": 9, "w": 14, "x": 10, "y": 0},
+                "gridPos": {"h": 13, "w": 14, "x": 10, "y": 0},
                 "targets": [
                     {
                         "refId": "A",
@@ -212,7 +212,7 @@ def dashboard() -> dict[str, Any]:
                 "type": "logs",
                 "title": "s-loop-a: an agent loop (attack fixture)",
                 "datasource": _DATASOURCE,
-                "gridPos": {"h": 10, "w": 12, "x": 0, "y": 9},
+                "gridPos": {"h": 9, "w": 12, "x": 0, "y": 13},
                 "targets": [
                     {"refId": "A", "datasource": _DATASOURCE, "expr": _session_logs("s-loop-a")}
                 ],
@@ -223,7 +223,7 @@ def dashboard() -> dict[str, Any]:
                 "type": "logs",
                 "title": "s-retry-backoff: a backup job the LogQL retry rule flags by mistake",
                 "datasource": _DATASOURCE,
-                "gridPos": {"h": 10, "w": 12, "x": 12, "y": 9},
+                "gridPos": {"h": 9, "w": 12, "x": 12, "y": 13},
                 "targets": [
                     {
                         "refId": "A",
