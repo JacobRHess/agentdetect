@@ -107,6 +107,13 @@ detections:
       # not events, to stay silent.
       - events: fixtures/agent_loop_interleave_blocks.benign.json
         expect: clean
+      # The threshold boundary. Exactly three call -> act steps must fire and
+      # exactly two must not, on both engines. Loki's rate_counter does not
+      # return whole numbers here, which is why its threshold is 2.5.
+      - events: fixtures/agent_loop_interleave_three.alert.json
+        expect: alert
+      - events: fixtures/agent_loop_interleave_two.benign.json
+        expect: clean
 
   - id: agent-retry-storm
     title: Error-driven self-correction retry loops
