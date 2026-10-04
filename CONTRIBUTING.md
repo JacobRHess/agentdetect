@@ -8,7 +8,10 @@ attack trace and stays silent on its benign one.
 
 1. Write the rule under `rules/` - a `.yml` Sigma rule for a field match, or a
    `.spl` native Splunk search for a behavioral/statistical one. A native rule
-   must lead with a filter (not a pipe) so the engine's per-run scope binds.
+   must lead with a filter (not a pipe) so the engine's per-run scope binds,
+   and needs a `.logql` port beside it that selects `{job="agentdetect"}`. If
+   the port cannot match the SPL, add a benign fixture that lands in the gap
+   and mark it `diverges: [loki]` rather than leaving the difference untested.
 2. Add two fixtures under `fixtures/`: `<name>.alert.json` (must fire) and
    `<name>.benign.json` (must stay silent). The benign fixture should be the
    deliberate near-miss for that rule - the case that separates a real detection

@@ -37,3 +37,20 @@ def test_every_detection_maps_to_attack() -> None:
     for det in load():
         assert det.attack, f"{det.id} has no ATT&CK technique"
         assert all(t.startswith("T") for t in det.attack)
+
+
+def test_native_rules_have_a_logql_port_and_sigma_rules_do_not() -> None:
+    for det in load():
+        if det.kind is RuleKind.SPL:
+            assert det.logql is not None
+            assert det.logql.suffix == ".logql"
+        else:
+            assert det.logql is None
+
+
+def test_declared_divergences_are_loki_only_and_benign() -> None:
+    diverging = [(det.id, fx) for det in load() for fx in det.fixtures if fx.diverges]
+    assert {det_id for det_id, _ in diverging} == {"agent-command-cadence", "agent-retry-storm"}
+    for _, fx in diverging:
+        assert fx.diverges == frozenset({"loki"})
+        assert fx.expect is Expect.CLEAN

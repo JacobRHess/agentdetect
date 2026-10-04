@@ -11,6 +11,7 @@ dependencies = [
     "pysigma>=0.11",
     "pysigma-backend-splunk>=1.1",
     "requests>=2.32",
+    "pysigma-backend-loki>=0.15",
 ]
 
 [project.optional-dependencies]
@@ -95,12 +96,13 @@ source = ["src/agentdetect"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-# The Splunk client, the engine wrapper around it, and the emulation loop are
-# exercised by the CI validate job against a real Splunk (and by hand against a
-# real API key). Mocking the transport to chase a unit-coverage number here
+# The Splunk and Loki clients, the engine wrapper around them, and the emulation
+# loop are exercised by the CI validate job against real engines (and by hand
+# against a real API key). Mocking the transport to chase a unit-coverage number here
 # would hide the failures the replay job exists to catch.
 omit = [
     "src/agentdetect/splunk.py",
+    "src/agentdetect/loki.py",
     "src/agentdetect/engine.py",
     "src/agentdetect/emulate.py",
 ]
@@ -109,9 +111,9 @@ fail_under = 90
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # The default run is the offline gate: deselect the replay tests that need a
-# live Splunk. The CI validate job (and the local lab) opt back in with
+# live Splunk and Loki. The CI validate job (and the local lab) opt back in with
 # `-m replay`.
 addopts = '-ra -m "not replay"'
 markers = [
-    "replay: requires a live Splunk (CI validate job)",
+    "replay: requires a live Splunk and Loki (CI validate job)",
 ]

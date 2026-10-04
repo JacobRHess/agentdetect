@@ -1,0 +1,8 @@
+# Port of sensitive_read_llm_exfil.spl. Fidelity: exact.
+# Latest exfil time minus latest read time, per session, in milliseconds. The
+# result survives only when the exfil follows the read by at most 180 s.
+(
+  max by (session) (max_over_time({job="agentdetect"} | json | event_type="network_connection" | dest_host=~`api[.]anthropic[.]com|api[.]openai[.]com|api[.]mistral[.]ai|api[.]cohere[.]ai|api[.]x[.]ai|api[.]deepseek[.]com|api[.]groq[.]com|api[.]together[.]xyz|openrouter[.]ai|generativelanguage[.]googleapis[.]com` | bytes_out >= 20000 | label_format ts=`{{ unixEpochMillis __timestamp__ }}` | unwrap ts [10m]))
+  - on (session)
+  max by (session) (max_over_time({job="agentdetect"} | json | event_type="process_creation" | command_line=~`(?i).*([.]aws/credentials|[.]ssh/id_|/etc/shadow|[.]kube/config|[.]git-credentials|(^|[[:space:]])secret|(^|[[:space:]])token|password).*` | label_format ts=`{{ unixEpochMillis __timestamp__ }}` | unwrap ts [10m]))
+) >= 0 <= 180000

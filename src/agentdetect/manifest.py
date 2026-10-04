@@ -15,6 +15,12 @@ A detection's rule is one of two kinds, chosen by file extension:
   into portable Sigma without lying about what they measure, so they are written
   as the search a detection engineer would actually deploy.
 
+Both kinds run on two engines. A Sigma rule is converted for each. A native rule
+names its hand-written Loki port with ``logql:``. Where a port is knowingly
+weaker than the SPL original, the fixture that exposes the gap lists the engine
+under ``diverges:``; that engine must then give the *opposite* answer, so the
+gap is pinned by a test instead of described in prose.
+
 Every path in the manifest is confined to the repository root: it must be
 relative, must not climb out with ``..``, and must point at a file that exists.
 """
@@ -46,10 +52,14 @@ class RuleKind(Enum):
     SPL = "spl"
 
 
+ENGINES = ("splunk", "loki")
+
+
 @dataclass(frozen=True, slots=True)
 class Fixture:
     events: Path
     expect: Expect
+    diverges: frozenset[str] = frozenset()
 
     @property
     def name(self) -> str:
@@ -62,6 +72,7 @@ class Detection:
     title: str
     rule: Path
     kind: RuleKind
+    logql: Path | None
     attack: tuple[str, ...]
     fixtures: tuple[Fixture, ...]
 
@@ -99,7 +110,22 @@ def _parse_fixture(raw: dict[str, Any], ctx: str) -> Fixture:
         expect = Expect(str(_require(raw, "expect", ctx)))
     except ValueError as exc:
         raise ManifestError(f"{ctx}: expect must be 'alert' or 'clean'") from exc
-    return Fixture(events=events, expect=expect)
+    diverges_raw = raw.get("diverges", [])
+    if not isinstance(diverges_raw, list) or not set(diverges_raw) <= set(ENGINES):
+        raise ManifestError(f"{ctx}: diverges must be a list drawn from {list(ENGINES)}")
+    return Fixture(events=events, expect=expect, diverges=frozenset(diverges_raw))
+
+
+def _parse_logql(raw: dict[str, Any], kind: RuleKind, ctx: str) -> Path | None:
+    """A native rule must name its Loki port; a Sigma rule is converted instead."""
+    if kind is RuleKind.SIGMA:
+        if "logql" in raw:
+            raise ManifestError(f"{ctx}: a Sigma rule is converted to LogQL, drop 'logql'")
+        return None
+    logql = _confine(str(_require(raw, "logql", ctx)), field="logql", ctx=ctx)
+    if logql.suffix.lower() != ".logql":
+        raise ManifestError(f"{ctx}: logql must be a .logql query")
+    return logql
 
 
 def _parse_detection(raw: dict[str, Any]) -> Detection:
@@ -107,6 +133,8 @@ def _parse_detection(raw: dict[str, Any]) -> Detection:
     ctx = f"detection {det_id!r}"
 
     rule = _confine(str(_require(raw, "rule", ctx)), field="rule", ctx=ctx)
+    kind = _rule_kind(rule, ctx)
+    logql = _parse_logql(raw, kind, ctx)
     attack = tuple(str(t) for t in raw.get("attack", []))
 
     fixtures_raw = _require(raw, "fixtures", ctx)
@@ -122,7 +150,8 @@ def _parse_detection(raw: dict[str, Any]) -> Detection:
         id=det_id,
         title=str(_require(raw, "title", ctx)),
         rule=rule,
-        kind=_rule_kind(rule, ctx),
+        kind=kind,
+        logql=logql,
         attack=attack,
         fixtures=fixtures,
     )

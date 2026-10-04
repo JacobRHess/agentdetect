@@ -1,0 +1,19 @@
+# Port of agent_command_cadence.spl. Fidelity: approximate.
+# The SPL rule measures every gap between consecutive commands: at least 70% of
+# gaps inside 0.5-10 s and a coefficient of variation of at most 0.9. This port
+# keeps the volume, variety and tty tests but only knows the mean gap (trace
+# span over command count minus one), so it cannot tell a steady cadence from
+# bursts and pauses that average out to the same number.
+(sum by (session) (count_over_time({job="agentdetect"} | json | event_type="process_creation" | tty="" [5m])) >= 8)
+and on (session)
+(count by (session) (sum by (session, command_line) (count_over_time({job="agentdetect"} | json | event_type="process_creation" | tty="" [5m]))) >= 6)
+and on (session)
+(
+  (
+    max by (session) (max_over_time({job="agentdetect"} | json | event_type="process_creation" | tty="" | label_format ts=`{{ unixEpochMillis __timestamp__ }}` | unwrap ts [5m]))
+    - min by (session) (min_over_time({job="agentdetect"} | json | event_type="process_creation" | tty="" | label_format ts=`{{ unixEpochMillis __timestamp__ }}` | unwrap ts [5m]))
+  )
+  / on (session)
+  (sum by (session) (count_over_time({job="agentdetect"} | json | event_type="process_creation" | tty="" [5m])) - 1)
+  >= 500 <= 10000
+)

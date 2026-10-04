@@ -68,3 +68,59 @@ def test_needs_both_alert_and_clean(tmp_path: Path) -> None:
     )
     with pytest.raises(ManifestError, match=r"alert.*clean|clean"):
         load(_write(tmp_path, body))
+
+
+_FIXTURES = (
+    "    fixtures:\n"
+    "      - {events: README.md, expect: alert}\n"
+    "      - {events: README.md, expect: clean}\n"
+)
+
+
+def test_native_rule_requires_logql_port(tmp_path: Path) -> None:
+    body = (
+        "detections:\n"
+        "  - id: x\n"
+        "    title: x\n"
+        "    rule: rules/correlation/agent_retry_storm.spl\n" + _FIXTURES
+    )
+    with pytest.raises(ManifestError, match="missing required key 'logql'"):
+        load(_write(tmp_path, body))
+
+
+def test_logql_port_must_be_a_logql_file(tmp_path: Path) -> None:
+    body = (
+        "detections:\n"
+        "  - id: x\n"
+        "    title: x\n"
+        "    rule: rules/correlation/agent_retry_storm.spl\n"
+        "    logql: README.md\n" + _FIXTURES
+    )
+    with pytest.raises(ManifestError, match=r"must be a \.logql query"):
+        load(_write(tmp_path, body))
+
+
+def test_sigma_rule_rejects_logql_port(tmp_path: Path) -> None:
+    body = (
+        "detections:\n"
+        "  - id: x\n"
+        "    title: x\n"
+        "    rule: rules/network/llm_api_egress.yml\n"
+        "    logql: rules/correlation/agent_retry_storm.logql\n" + _FIXTURES
+    )
+    with pytest.raises(ManifestError, match="drop 'logql'"):
+        load(_write(tmp_path, body))
+
+
+def test_diverges_must_name_known_engines(tmp_path: Path) -> None:
+    body = (
+        "detections:\n"
+        "  - id: x\n"
+        "    title: x\n"
+        "    rule: rules/network/llm_api_egress.yml\n"
+        "    fixtures:\n"
+        "      - {events: README.md, expect: alert}\n"
+        "      - {events: README.md, expect: clean, diverges: [elastic]}\n"
+    )
+    with pytest.raises(ManifestError, match="diverges must be a list"):
+        load(_write(tmp_path, body))

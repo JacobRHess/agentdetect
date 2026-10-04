@@ -2,8 +2,8 @@
 
 ``list`` and ``validate`` need nothing but the repo: they read the manifest and
 run the Sigma conversions, so they are the fast offline gate. Replaying fixtures
-through a live Splunk is ``pytest -m replay``; reporting and the real-agent
-emulation loop land in their own subcommands.
+through a live Splunk and Loki is ``pytest -m replay``; reporting and the
+real-agent emulation loop land in their own subcommands.
 """
 
 from __future__ import annotations
@@ -14,7 +14,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from agentdetect import sigma
-from agentdetect.manifest import Detection, ManifestError, RuleKind, load
+from agentdetect.loki import SELECTOR
+from agentdetect.manifest import ENGINES, Detection, ManifestError, RuleKind, load
 
 
 def _cmd_list(_: argparse.Namespace) -> int:
@@ -24,26 +25,31 @@ def _cmd_list(_: argparse.Namespace) -> int:
         print(f"{det.id}\n  {det.title}")
         print(f"  [{kind}] {det.rule.name}   attack: {attack}")
         for fx in det.fixtures:
-            print(f"    [{fx.expect.value:>5}] {fx.events.name}")
+            note = f"   diverges: {', '.join(sorted(fx.diverges))}" if fx.diverges else ""
+            print(f"    [{fx.expect.value:>5}] {fx.events.name}{note}")
     return 0
 
 
 def _cmd_validate(_: argparse.Namespace) -> int:
-    """Prove every rule is well-formed: Sigma rules convert, SPL rules parse.
+    """Prove every rule is well-formed: Sigma rules convert, native rules parse.
 
-    Sigma is machine-converted to SPL, so a failure here is a real conversion
-    bug. Native SPL cannot be "converted", but a rule that is empty or missing
-    its leading filter would silently match nothing (or everything) at replay
-    time, so those are rejected too.
+    Sigma is machine-converted to SPL and LogQL, so a failure here is a real
+    conversion bug. Native rules cannot be "converted", but one that is empty,
+    missing its leading filter (SPL) or missing the stream selector the engine
+    scopes (LogQL) would silently read the wrong events at replay time, so
+    those are rejected too.
     """
     detections = load()
     failures = 0
     for det in detections:
         try:
             if det.kind is RuleKind.SIGMA:
-                sigma.to_spl(det.rule.read_text(encoding="utf-8"))
+                rule_text = det.rule.read_text(encoding="utf-8")
+                sigma.to_spl(rule_text)
+                sigma.to_logql(rule_text)
             else:
                 _check_spl(det)
+                _check_logql(det)
         except (sigma.ConversionError, ManifestError) as exc:
             failures += 1
             print(f"FAIL  {det.id}: {exc}", file=sys.stderr)
@@ -67,6 +73,18 @@ def _check_spl(det: Detection) -> None:
         raise ManifestError(f"{det.rule.name} has unbalanced parentheses")
 
 
+def _check_logql(det: Detection) -> None:
+    if det.logql is None:
+        raise ManifestError(f"{det.id} has no LogQL port")
+    text = det.logql.read_text(encoding="utf-8")
+    if SELECTOR not in text:
+        # The engine confines a rule to one replay by narrowing this selector;
+        # without it the rule could not be scoped and would be refused at replay.
+        raise ManifestError(f"{det.logql.name} must select {SELECTOR}")
+    if text.count("(") != text.count(")"):
+        raise ManifestError(f"{det.logql.name} has unbalanced parentheses")
+
+
 def _cmd_convert(args: argparse.Namespace) -> int:
     detections = {d.id: d for d in load()}
     det = detections.get(args.id)
@@ -74,35 +92,71 @@ def _cmd_convert(args: argparse.Namespace) -> int:
         print(f"no detection with id {args.id!r}", file=sys.stderr)
         return 2
     if det.kind is RuleKind.SIGMA:
-        print(sigma.to_spl(det.rule.read_text(encoding="utf-8")))
+        convert = sigma.to_logql if args.engine == "loki" else sigma.to_spl
+        print(convert(det.rule.read_text(encoding="utf-8")))
     else:
-        print(det.rule.read_text(encoding="utf-8"), end="")
+        native = det.logql if args.engine == "loki" and det.logql is not None else det.rule
+        print(native.read_text(encoding="utf-8"), end="")
     return 0
 
 
 def _cmd_report(args: argparse.Namespace) -> int:  # pragma: no cover - live engine
-    from agentdetect.engine import SplunkEngine
+    from agentdetect.engine import by_name
     from agentdetect.harness import evaluate
     from agentdetect.report import CellResult, Results, render
 
     detections = load()
-    engine = SplunkEngine()
+    engine = by_name(args.engine)
     results: Results = {}
     try:
         engine.wait_ready()
         reachable = True
     except Exception as exc:  # engine unreachable: every cell is "not evaluated"
-        print(f"warning: splunk not reachable ({exc}); page will be unevaluated", file=sys.stderr)
+        print(
+            f"warning: {args.engine} not reachable ({exc}); page will be unevaluated",
+            file=sys.stderr,
+        )
         reachable = False
     if reachable:
         for det in detections:
             for fx in det.fixtures:
                 verdict = evaluate(det, fx, engine)
-                results[det.id, fx.name] = CellResult(verdict.passed, verdict.detail)
-    args.out.write_text(render(detections, results), encoding="utf-8")
+                results[det.id, fx.name] = CellResult(
+                    verdict.passed, verdict.detail, verdict.diverges
+                )
+    args.out.write_text(render(detections, results, engine=args.engine), encoding="utf-8")
     failed = sum(1 for r in results.values() if r.passed is False)
     print(f"wrote {args.out} ({len(results)} cells, {failed} failed)")
     return 1 if failed else 0
+
+
+def _cmd_seed(_: argparse.Namespace) -> int:  # pragma: no cover - live engine
+    """Push every fixture into the lab Loki so the Grafana lab has sessions to show."""
+    from agentdetect.engine import load_events
+    from agentdetect.loki import LokiClient
+
+    client = LokiClient()
+    client.wait_ready()
+    total = 0
+    for det in load():
+        for fx in det.fixtures:
+            events = load_events(fx.events)
+            client.post_stream(events, {"job": "agentdetect", "fixture": fx.events.stem})
+            total += len(events)
+    print(f"seeded {total} events; they stay inside the rules' windows for a few minutes")
+    return 0
+
+
+def _cmd_grafana(args: argparse.Namespace) -> int:
+    from agentdetect import grafana
+
+    rules = args.out_dir / "provisioning" / "alerting" / "agentdetect.yml"
+    board = args.out_dir / "dashboards" / "agentdetect.json"
+    for path, text in ((rules, grafana.render_alert_rules()), (board, grafana.render_dashboard())):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
+        print(f"wrote {path}")
+    return 0
 
 
 def _cmd_attack(args: argparse.Namespace) -> int:
@@ -142,13 +196,25 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     sub.add_parser("validate", help="every rule is well-formed").set_defaults(func=_cmd_validate)
 
-    p_convert = sub.add_parser("convert", help="print the SPL a detection runs")
+    p_convert = sub.add_parser("convert", help="print the search a detection runs")
     p_convert.add_argument("id")
+    p_convert.add_argument("--engine", choices=ENGINES, default="splunk")
     p_convert.set_defaults(func=_cmd_convert)
 
-    p_report = sub.add_parser("report", help="replay through Splunk and write an HTML report")
+    p_report = sub.add_parser("report", help="replay through an engine and write an HTML report")
     p_report.add_argument("--out", type=Path, default=Path("report.html"))
+    p_report.add_argument("--engine", choices=ENGINES, default="splunk")
     p_report.set_defaults(func=_cmd_report)
+
+    sub.add_parser("seed", help="push every fixture into the lab Loki for Grafana").set_defaults(
+        func=_cmd_seed
+    )
+
+    p_grafana = sub.add_parser(
+        "grafana", help="generate the Grafana lab alert rules and dashboard from the manifest"
+    )
+    p_grafana.add_argument("--out-dir", type=Path, default=Path("lab/grafana"))
+    p_grafana.set_defaults(func=_cmd_grafana)
 
     p_attack = sub.add_parser("attack", help="print ATT&CK coverage or write a Navigator layer")
     p_attack.add_argument("--layer", type=Path, help="write the Navigator layer JSON here")

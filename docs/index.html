@@ -85,7 +85,7 @@
       pauses for. agentdetect keys on that rhythm, not on any one payload.</p>
     <p>Every detection ships with two traces: an attack sample that must fire it
       and a benign near-miss that must stay silent. CI replays both through a
-      real Splunk on every push. A rule that matches everything fails the benign
+      real Splunk and a real Grafana Loki on every push. A rule that matches everything fails the benign
       half; a rule that matches nothing fails the attack half.</p>
   </div>
 </section>
@@ -97,7 +97,7 @@
     <em>operates</em>, not what it downloads.</p>
 
   <div class="det">
-    <div class="name">agent-loop-interleave<span>native Splunk</span></div>
+    <div class="name">agent-loop-interleave<span>SPL + LogQL</span></div>
     <p>Model call, host action, model call, host action, repeated in one
       session. The signature of a tool-use loop, and the one thing a benign AI
       feature never does: it calls the model; it doesn't then run
@@ -105,25 +105,25 @@
       <span class="tag">T1102</span><span class="tag">T1071.001</span></p>
   </div>
   <div class="det">
-    <div class="name">agent-command-cadence<span>native Splunk</span></div>
+    <div class="name">agent-command-cadence<span>SPL + approximate LogQL</span></div>
     <p>Non-interactive command bursts spaced by inference-latency gaps: faster
       and more regular than a human, far slower than a shell script.
       <span class="tag">T1059</span></p>
   </div>
   <div class="det">
-    <div class="name">agent-retry-storm<span>native Splunk</span></div>
+    <div class="name">agent-retry-storm<span>SPL + approximate LogQL</span></div>
     <p>The same tool re-run with a tweak within seconds of each failure, over and
       over. Machine self-correction, not a human giving up.
       <span class="tag">T1059</span></p>
   </div>
   <div class="det">
-    <div class="name">recon-breadth-burst<span>native Splunk</span></div>
+    <div class="name">recon-breadth-burst<span>SPL + LogQL</span></div>
     <p>One session sweeping six or more distinct discovery categories inside two
       minutes, because a model already knows every path worth checking.
       <span class="tag">T1082</span><span class="tag">T1057</span><span class="tag">T1033</span></p>
   </div>
   <div class="det">
-    <div class="name">sensitive-read-llm-exfil<span>native Splunk</span></div>
+    <div class="name">sensitive-read-llm-exfil<span>SPL + LogQL</span></div>
     <p>A credential read followed by a large POST to a model API. Exfiltration
       wearing a prompt as a costume.
       <span class="tag">T1567</span><span class="tag">T1041</span></p>
@@ -139,16 +139,31 @@
 <div class="flow">           detections.yaml  (single source of truth)
                   │
       ┌───────────┴───────────┐
-  rules/**/*.yml          rules/**/*.spl
-    (Sigma)               (native Splunk)
+  rules/**/*.yml       rules/**/*.spl + *.logql
+    (Sigma)            (native, one per engine)
       │                        │
-  Sigma → SPL             run as-is
+ Sigma → SPL, LogQL       run as-is
       └───────────┬───────────┘
-              Splunk (CI service)
-      index a fixture's events, run the search
+        Splunk and Loki (CI services)
+     ingest a fixture's events, run the search
                   │
        attack trace → must fire
        benign trace → must stay silent</div>
+</section>
+
+<section>
+  <h2>Two engines, and where they disagree</h2>
+  <div class="two">
+    <p>The behavioral rules were written in SPL first, then ported to LogQL by
+      hand. LogQL has no <code>streamstats</code>, so the loop rule counts
+      model-call to command steps with <code>rate_counter</code> over a 0/1
+      series instead. Three of the five ports hold up against every fixture.</p>
+    <p>Two don't. The cadence and retry-storm ports can't see the gap between
+      one event and the next, and each fires on a benign trace that Splunk stays
+      silent on. Those two cells are declared in the manifest as known
+      divergences and CI enforces them, so the gap is tested instead of
+      hidden.</p>
+  </div>
 </section>
 
 <section>
@@ -175,7 +190,7 @@ agentdetect emulate recon-and-loot \
   <div class="cols">
     <p>agentdetect is a detection-engineering portfolio project by Jacob Hess.
       Ten detections across the agent kill chain, each tagged to MITRE ATT&amp;CK
-      and proven against a real Splunk in CI.</p>
+      and proven against a real Splunk and Grafana Loki in CI.</p>
     <p>Field-match anchors (traffic to a model API, an SDK user agent, a
       credential read, an IMDS hit) are shipped too, and deliberately labelled
       as the brittle, spoofable half, to make the case for the behavioral rules

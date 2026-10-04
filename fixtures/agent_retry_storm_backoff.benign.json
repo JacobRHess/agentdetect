@@ -1,0 +1,7 @@
+[
+  {"timestamp": "2026-07-07T17:10:00.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-backoff", "user": "svc-backup", "pid": 48001, "image": "/usr/bin/rsync", "command_line": "rsync -a /opt/app/data backup-01:/srv/backups/app", "tty": "", "exit_code": 23},
+  {"timestamp": "2026-07-07T17:10:30.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-backoff", "user": "svc-backup", "pid": 48002, "image": "/usr/bin/rsync", "command_line": "rsync -a /opt/app/data backup-01:/srv/backups/app", "tty": "", "exit_code": 23},
+  {"timestamp": "2026-07-07T17:11:00.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-backoff", "user": "svc-backup", "pid": 48003, "image": "/usr/bin/rsync", "command_line": "rsync -a /opt/app/data backup-01:/srv/backups/app", "tty": "", "exit_code": 23},
+  {"timestamp": "2026-07-07T17:11:30.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-backoff", "user": "svc-backup", "pid": 48004, "image": "/usr/bin/rsync", "command_line": "rsync -a /opt/app/data backup-01:/srv/backups/app", "tty": "", "exit_code": 0},
+  {"timestamp": "2026-07-07T17:11:31.000Z", "event_type": "process_creation", "host": "app-worker-03", "session": "s-retry-backoff", "user": "svc-backup", "pid": 48005, "image": "/usr/bin/logger", "command_line": "logger backup complete after 3 retries", "tty": "", "exit_code": 0}
+]
