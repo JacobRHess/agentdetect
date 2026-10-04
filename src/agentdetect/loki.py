@@ -104,6 +104,10 @@ class LokiClient:
         """Push one fixture as a single stream; return the query evaluation time (ns)."""
         if not _RUN_RE.match(run):
             raise LokiError(f"invalid run token {run!r}")
+        return self.post_stream(events, {"job": "agentdetect", "ad_run": run})
+
+    def post_stream(self, events: list[dict[str, Any]], labels: dict[str, str]) -> int:
+        """Push events as one stream under the given labels, rebased to end now."""
         if not events:
             raise LokiError("refusing to push an empty fixture")
         stamps = [_epoch_ns(event.get("timestamp")) for event in events]
@@ -115,7 +119,7 @@ class LokiClient:
         resp = self._request(
             "POST",
             "/loki/api/v1/push",
-            json={"streams": [{"stream": {"job": "agentdetect", "ad_run": run}, "values": values}]},
+            json={"streams": [{"stream": labels, "values": values}]},
         )
         if resp.status_code != 204:
             raise LokiError(f"push returned {resp.status_code}: {resp.text[:200]}")

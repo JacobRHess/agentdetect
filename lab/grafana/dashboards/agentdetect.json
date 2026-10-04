@@ -1,0 +1,249 @@
+{
+  "uid": "agentdetect",
+  "title": "agentdetect on Loki",
+  "tags": [
+    "agentdetect"
+  ],
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Sessions flagged by the behavioral rules",
+      "datasource": {
+        "type": "loki",
+        "uid": "agentdetect-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "agentdetect-loki"
+          },
+          "expr": "label_replace(count by (session) (\ncount by (session) (\n  sum by (session, recon) (\n    count_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\"\n      | label_format recon=`{{ if count \"(?i)(^|[[:space:]])(whoami|id)([[:space:]]|$)\" .command_line }}identity{{ else if count \"(?i)(uname|hostname|lsb_release|/etc/os-release|/etc/issue)\" .command_line }}sysinfo{{ else if count \"(?i)(ip[[:space:]]+a|ip[[:space:]]+addr|ifconfig|netstat|(^|[[:space:]])ss[[:space:]]+-|(^|[[:space:]])route([[:space:]]|$))\" .command_line }}netconfig{{ else if count \"(?i)((^|[[:space:]])ps[[:space:]]|pgrep|(^|[[:space:]])top([[:space:]]|$)|htop)\" .command_line }}procs{{ else if count \"(?i)((^|[[:space:]])env([[:space:]]|$)|printenv)\" .command_line }}env{{ else if count \"(?i)sudo[[:space:]]+-l\" .command_line }}privs{{ else if count \"(?i)(crontab[[:space:]]+-l|systemctl[[:space:]]+list|service[[:space:]]+--status-all)\" .command_line }}services{{ else if count \"(?i)(-perm[[:space:]]+[-/]?[0-9]*4000)\" .command_line }}suid{{ else if count \"(?i)(/etc/passwd|getent[[:space:]]+passwd|/etc/shadow)\" .command_line }}accounts{{ else if count \"(?i)((^|[[:space:]])mount([[:space:]]|$)|lsblk|(^|[[:space:]])df[[:space:]]+-)\" .command_line }}storage{{ else if count \"(?i)(dpkg[[:space:]]+-l|rpm[[:space:]]+-qa|apt[[:space:]]+list|pip[[:space:]]+list)\" .command_line }}software{{ end }}`\n      | recon != \"\" [2m])\n  )\n) >= 6\n), \"rule\", \"recon-breadth-burst\", \"\", \"\")",
+          "queryType": "instant",
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "agentdetect-loki"
+          },
+          "expr": "label_replace(count by (session) (\n(sum by (session) (count_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\" | tty=\"\" [5m])) >= 8)\nand on (session)\n(count by (session) (sum by (session, command_line) (count_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\" | tty=\"\" [5m]))) >= 6)\nand on (session)\n(\n  (\n    max by (session) (max_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\" | tty=\"\" | label_format ts=`{{ unixEpochMillis __timestamp__ }}` | unwrap ts [5m]))\n    - min by (session) (min_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\" | tty=\"\" | label_format ts=`{{ unixEpochMillis __timestamp__ }}` | unwrap ts [5m]))\n  )\n  / on (session)\n  (sum by (session) (count_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\" | tty=\"\" [5m])) - 1)\n  >= 500 <= 10000\n)\n), \"rule\", \"agent-command-cadence\", \"\", \"\")",
+          "queryType": "instant",
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "loki",
+            "uid": "agentdetect-loki"
+          },
+          "expr": "label_replace(count by (session) (\nsum by (session) (\n  rate_counter({job=\"agentdetect\"} | json | event_type=~\"process_creation|network_connection\"\n    | label_format kind=`{{ if eq .event_type \"process_creation\" }}1{{ else if count \"^(api[.]anthropic[.]com|api[.]openai[.]com|api[.]mistral[.]ai|api[.]cohere[.]ai|api[.]x[.]ai|api[.]deepseek[.]com|api[.]groq[.]com|api[.]together[.]xyz|openrouter[.]ai|generativelanguage[.]googleapis[.]com)$\" .dest_host }}0{{ end }}`\n    | kind != \"\" | keep session, kind | unwrap kind [5m])\n) * 300 >= 2.5\n), \"rule\", \"agent-loop-interleave\", \"\", \"\")",
+          "queryType": "instant",
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "loki",
+            "uid": "agentdetect-loki"
+          },
+          "expr": "label_replace(count by (session) (\nsum by (session) (\n  sum_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\" | label_format exe=`{{ regexReplaceAll \"[[:space:]].*\" .command_line \"\" }}`, failed=`{{ if eq .exit_code \"0\" }}0{{ else }}1{{ end }}` | keep session, exe, failed | unwrap failed [5m])\n  -\n  last_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\" | label_format exe=`{{ regexReplaceAll \"[[:space:]].*\" .command_line \"\" }}`, failed=`{{ if eq .exit_code \"0\" }}0{{ else }}1{{ end }}` | keep session, exe, failed | unwrap failed [5m])\n) >= 3\n), \"rule\", \"agent-retry-storm\", \"\", \"\")",
+          "queryType": "instant",
+          "editorMode": "code"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "loki",
+            "uid": "agentdetect-loki"
+          },
+          "expr": "label_replace(count by (session) (\n(\n  max by (session) (max_over_time({job=\"agentdetect\"} | json | event_type=\"network_connection\" | dest_host=~`api[.]anthropic[.]com|api[.]openai[.]com|api[.]mistral[.]ai|api[.]cohere[.]ai|api[.]x[.]ai|api[.]deepseek[.]com|api[.]groq[.]com|api[.]together[.]xyz|openrouter[.]ai|generativelanguage[.]googleapis[.]com` | bytes_out >= 20000 | label_format ts=`{{ unixEpochMillis __timestamp__ }}` | unwrap ts [10m]))\n  - on (session)\n  max by (session) (max_over_time({job=\"agentdetect\"} | json | event_type=\"process_creation\" | command_line=~`(?i).*([.]aws/credentials|[.]ssh/id_|/etc/shadow|[.]kube/config|[.]git-credentials|(^|[[:space:]])secret|(^|[[:space:]])token|password).*` | label_format ts=`{{ unixEpochMillis __timestamp__ }}` | unwrap ts [10m]))\n) >= 0 <= 180000\n), \"rule\", \"sensitive-read-llm-exfil\", \"\", \"\")",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "rule": 0,
+              "session": 1
+            },
+            "includeByName": {
+              "rule": true,
+              "session": true
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "rule"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Model call to command cycles per session (fires at 2.5)",
+      "datasource": {
+        "type": "loki",
+        "uid": "agentdetect-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 10,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "agentdetect-loki"
+          },
+          "expr": "sum by (session) (\n  rate_counter({job=\"agentdetect\"} | json | event_type=~\"process_creation|network_connection\"\n    | label_format kind=`{{ if eq .event_type \"process_creation\" }}1{{ else if count \"^(api[.]anthropic[.]com|api[.]openai[.]com|api[.]mistral[.]ai|api[.]cohere[.]ai|api[.]x[.]ai|api[.]deepseek[.]com|api[.]groq[.]com|api[.]together[.]xyz|openrouter[.]ai|generativelanguage[.]googleapis[.]com)$\" .dest_host }}0{{ end }}`\n    | kind != \"\" | keep session, kind | unwrap kind [5m])\n) * 300",
+          "queryType": "instant",
+          "legendFormat": "{{session}}",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "limit": 6
+        }
+      },
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Value #A",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 5,
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 2.5
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "logs",
+      "title": "s-loop-a: an agent loop (attack fixture)",
+      "datasource": {
+        "type": "loki",
+        "uid": "agentdetect-loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "agentdetect-loki"
+          },
+          "expr": "{job=\"agentdetect\"} | json | session=\"s-loop-a\" | line_format `{{ .event_type }}  exit={{ .exit_code }}  {{ .command_line }}{{ .dest_host }}`"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "logs",
+      "title": "s-retry-backoff: a backup job the LogQL retry rule flags by mistake",
+      "datasource": {
+        "type": "loki",
+        "uid": "agentdetect-loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "agentdetect-loki"
+          },
+          "expr": "{job=\"agentdetect\"} | json | session=\"s-retry-backoff\" | line_format `{{ .event_type }}  exit={{ .exit_code }}  {{ .command_line }}{{ .dest_host }}`"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": true
+      }
+    }
+  ]
+}

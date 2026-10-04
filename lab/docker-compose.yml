@@ -4,7 +4,9 @@
 #
 #   docker compose -f lab/docker-compose.yml up -d
 #
-# Splunk listens on 8000 (web), 8088 (HEC), 8089 (REST); Loki on 3100.
+# Splunk listens on 8000 (web), 8088 (HEC), 8089 (REST); Loki on 3100; Grafana
+# on 3001 with the Loki datasource, the alert rules and a dashboard provisioned.
+# Run `uv run agentdetect seed` to give Grafana sessions to look at.
 # Throwaway dev credentials; nothing here is a secret.
 services:
   splunk:
@@ -32,3 +34,19 @@ services:
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: ad-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      # Lab only: no login, so the provisioned content opens straight away.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - loki

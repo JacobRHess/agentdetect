@@ -140,6 +140,16 @@ uv run agentdetect report --out report.html
 uv run agentdetect report --engine loki --out report-loki.html
 ```
 
+The lab also starts Grafana on http://localhost:3001 with the Loki datasource,
+a dashboard, and all ten detections provisioned as alert rules. Both files are
+generated from the rule files by `agentdetect grafana`, and a test fails if
+they drift.
+
+```bash
+uv run agentdetect seed              # push every fixture into the lab Loki
+# open http://localhost:3001/alerting/list a few seconds later
+```
+
 ## Layout
 
 ```
@@ -150,7 +160,7 @@ rules/correlation/       native searches for the behavioral detections (.spl + .
 fixtures/                attack + benign traces, at least one pair per detection
 src/agentdetect/         schema, manifest, Sigma converter, Splunk + Loki clients, CLI
 emulate/                 the sandbox container + honeypot for the live agent loop
-lab/                     docker-compose for a local Splunk and Loki
+lab/                     docker-compose for a local Splunk, Loki and Grafana
 docs/                    generated ATT&CK coverage + the live-loop runbook
 ```
 

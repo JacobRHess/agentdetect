@@ -130,6 +130,35 @@ def _cmd_report(args: argparse.Namespace) -> int:  # pragma: no cover - live eng
     return 1 if failed else 0
 
 
+def _cmd_seed(_: argparse.Namespace) -> int:  # pragma: no cover - live engine
+    """Push every fixture into the lab Loki so the Grafana lab has sessions to show."""
+    from agentdetect.engine import load_events
+    from agentdetect.loki import LokiClient
+
+    client = LokiClient()
+    client.wait_ready()
+    total = 0
+    for det in load():
+        for fx in det.fixtures:
+            events = load_events(fx.events)
+            client.post_stream(events, {"job": "agentdetect", "fixture": fx.events.stem})
+            total += len(events)
+    print(f"seeded {total} events; they stay inside the rules' windows for a few minutes")
+    return 0
+
+
+def _cmd_grafana(args: argparse.Namespace) -> int:
+    from agentdetect import grafana
+
+    rules = args.out_dir / "provisioning" / "alerting" / "agentdetect.yml"
+    board = args.out_dir / "dashboards" / "agentdetect.json"
+    for path, text in ((rules, grafana.render_alert_rules()), (board, grafana.render_dashboard())):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
+        print(f"wrote {path}")
+    return 0
+
+
 def _cmd_attack(args: argparse.Namespace) -> int:
     from agentdetect import attackdoc
 
@@ -176,6 +205,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     p_report.add_argument("--out", type=Path, default=Path("report.html"))
     p_report.add_argument("--engine", choices=ENGINES, default="splunk")
     p_report.set_defaults(func=_cmd_report)
+
+    sub.add_parser("seed", help="push every fixture into the lab Loki for Grafana").set_defaults(
+        func=_cmd_seed
+    )
+
+    p_grafana = sub.add_parser(
+        "grafana", help="generate the Grafana lab alert rules and dashboard from the manifest"
+    )
+    p_grafana.add_argument("--out-dir", type=Path, default=Path("lab/grafana"))
+    p_grafana.set_defaults(func=_cmd_grafana)
 
     p_attack = sub.add_parser("attack", help="print ATT&CK coverage or write a Navigator layer")
     p_attack.add_argument("--layer", type=Path, help="write the Navigator layer JSON here")
